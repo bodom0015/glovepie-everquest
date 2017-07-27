@@ -1,0 +1,320 @@
+/*
+        This script is designed to run an EverQuest Necromancer using
+		an Xbox 360 Controller. A list of available commands can be
+		found below, as well as inside comments in the script itself.*/
+
+/*
+Global Hotkey List
+   Xbox Input     <=>    Keyboard/Mouse Equivalent    <=>        Action              Implemented
+   LT                                None                      Strafe Mode                x
+   RT                                None                       Walk Mode                 x
+   LT + RT                           None                      Camera Mode                x
+
+   Left Stick                   W / A / S / D                  Run / Walk                 x
+   LT + Left Stick                  Q / E                        Strafe                   x
+
+   Click Left Stick                    2                      Army of the Dead            x 
+   LT + Click Left Stick               5                     Guardian of Blood            x
+   RT + Click Left Stick               3                       Rise of Bones              x
+   LT + RT + Click Left Stick          4                     Swarm of the Dead            x
+
+   Right Stick                  Mouse Movement                 Cursor Moves               x 
+   LT + RT + Right Stick        Camera Movement                Camera Moves               x
+
+   Click Right Stick                   X                           Duck                   x
+   LT + Click Right Stick       Left Mouse Click                Clicks Mouse              x
+   RT + Click Right Stick      Right Mouse Click             Right Clicks Mouse           x
+   LT + RT + Click Right Stick         7                        Death Bloom               x
+
+   A                               Spacebar                       Jump                    x 
+   LT + A                             -               Warp Forward / Mount / Dismount     x
+   RT + A                      Execute Sub-Script               Levitate                  x
+   LT + RT + A                       End                          Drop                    x
+
+   B                               Alt + 2                     Short DoT 1                x
+   LT + B                          Alt + 3                     Short DoT 2                x
+   RT + B                          Alt + 4                     Short DoT 3                x
+   LT + RT + B                     Alt + 9                Medium DoT 5 / Debuff(s)        x
+
+   Y                               Alt + 5                     Medium DoT 1               x
+   LT + Y                          Alt + 6                     Medium DoT 2               x
+   RT + Y                          Alt + 7                     Medium DoT 3               x
+   LT + RT + Y                     Alt + 8                     Medium DoT 4               x
+
+   X                               Alt + =                      DD: Lifetap               x
+   LT + X                          Alt + 0                      DD: Turn Undead           x
+   RT + X                          Ctrl + 9                     Slow (Undead)             x
+   LT + RT + X                     Alt + 1                    DD: Venin / Blood           x
+          
+   LB                                 1                           Snare                   x
+   RB                              Ctrl + 1                       Root                    x
+   LT + LB                            8                        Invisibility               x
+   LT + RB                            9                     Invis Versus Undead           x
+   RT + LB                            0                Death Peace (FD) / Stand Up        x
+   RT + RB                            =              Death's Effigy (Fade) / Stand Up     x
+   LT + RT + RB                    Ctrl + 0                    Levant (Succor)            x
+   LT + RT + LB                    Ctrl + =                      Gate                     x
+
+   D-pad: Window toggles
+   Up                               Backspace                       Map                   x
+   Left                                I                         Inventory                x
+   Right                            Shift + B                   Open All Bags             x
+   Down                              Alt + Q                      Quests                  x
+
+   LT + D-pad: Targeting
+   LT + Up                      Ctrl + Shift + Alt + Tab         Cycle XTargs             x
+   LT + Left                            Tab                      Cycle NPCs               x
+   LT + Right                     Shift + Alt + Tab              Cycle PCs                x
+   LT + Down                      Ctrl + Shift + Alt + Tab       Target Pet               x
+   
+   RT + D-pad: Pet commands
+   RT + Up                         Ctrl + Alt + 9               Pet Attack                x
+   RT + Left                       Ctrl + Alt + 5                 Pet FD                  x
+   RT + Right                           Alt + -                 Shield Pet                x
+   RT + Down                       Ctrl + Alt + 8              Back Pet Off               x
+
+   LT + RT + D-pad: Camera controls
+   LT + RT + Up                   Mouse Wheel Up               Zoom camera in             x
+   LT + RT + Left             Left Click and Drag Left       Rotate camera left           x
+   LT + RT + Right            Left Click and Drag Right      Rotate camera right          x
+   LT + RT + Down                 Mouse Wheel Down             Zoom camera out            x
+
+   Micellaneous: Start / Back / Modes
+   Any button (while feigned)   Ctrl + Shift + 6                 Stand Up                 x
+   Back                             Esc                       Close Extra Windows         x
+    
+   Start                                                    Reluctant Benevolence         x
+   LT + Start                                                  Curse of Muram             x
+   RT + Start                                             Third Spire of Necromancy       x
+   LT + RT + Start                                              Funeral Pyre              x
+   LT + Back                                                     Harmshield               x
+   RT + Back                                                 Embalmer's  Carapace         x
+   LT + RT + Back              Shift + P + I + E            Halt Script Execution         x
+
+*/
+
+;init (Switches to EQ and initializes variables)
+if starting then   
+    Keyboard.Shift = FALSE
+    Keyboard.Ctrl = FALSE
+    Keyboard.Alt = FALSE
+    Keyboard.Alt = TRUE
+    Keyboard.Tab = TRUE
+    Var.WasdMod = 0.6
+    Var.RunMod = 0.75
+    Var.MouseDeadZoneMod = 10
+    Var.CameraMoveMod = 5
+    Var.CastDoT = TRUE
+
+    Var.AdvancedRunMode = FALSE
+    Var.WalkTimer = 0
+
+    Var.Mounted = FALSE
+
+    Keyboard.Tab = FALSE
+    Var.Feigned = FALSE
+    Var.FeignResetTimer = 0  
+    Var.StandResetTimer = 0
+    Var.FDResetLimit = 55
+    Keyboard.Alt = FALSE
+endif
+
+
+;LT + RT (Modifiers)
+Var.NoTrig = ((NOT XInput1.LeftTrigger) AND (NOT XInput1.RightTrigger))    
+Var.LT = (XInput1.LeftTrigger AND (NOT XInput1.RightTrigger))
+Var.RT = ((NOT XInput1.LeftTrigger) AND XInput1.RightTrigger)
+Var.LTRT = (XInput1.LeftTrigger AND XInput1.RightTrigger)
+
+;Debug vars
+Var.Strafing = Var.LT
+Var.Walking = Var.RT
+Var.CameraMode = Var.LTRT
+
+;Right stick (Mouse / Camera)
+Mouse.DirectInputX = mouse.DirectInputX + Var.MouseDeadZoneMod*deadzone(XInput1.Joy2X) + Var.CameraMode*Var.CameraMoveMod*XInput1.Left - Var.CameraMode*Var.CameraMoveMod*XInput1.Right   // Rotate left / right
+Mouse.DirectInputY = mouse.DirectInputY - Var.MouseDeadZoneMod*deadzone(XInput1.Joy2Y)               // Look up / down
+Mouse.LeftButton = (Var.LT AND XInput1.RightThumb) OR Var.CameraMode            // Left Mouse click
+Mouse.WheelUp = Var.CameraMode AND XInput1.Up                                   // Zoom in
+Mouse.WheelDown = Var.CameraMode AND XInput1.Down                               // Zoom out
+Mouse.RightButton = Var.RT AND XInput1.RightThumb                               // Right Mouse click
+Mouse.IsDragging = Var.CameraMode
+                             
+;Left stick (Run / Walk / Strafe)
+Pressed(Var.Running) = (XInput1.Joy1X > Var.RunMod OR XInput1.Joy1X < -Var.RunMod OR XInput1.Joy1Y > Var.RunMod OR XInput1.Joy1Y < -Var.RunMod)
+;Var.Running = (XInput1.LeftStickX > Var.RunMod OR XInput1.LeftStickX < -Var.RunMod OR XInput1.LeftStickY > Var.RunMod OR XInput1.LeftStickY < -Var.RunMod)
+Released(Var.Running) = (XInput1.Joy1X < Var.RunMod AND XInput1.Joy1X > -Var.RunMod AND XInput1.Joy1Y < Var.RunMod AND XInput1.Joy1Y > -Var.RunMod)
+
+//Keyboard.Ctrl AND Keyboard.R = Pressed(Var.RT) OR Released(Var.RT)                   // Hold RT to Walk
+Keyboard.W = (XInput1.Joy1Y > Var.WasdMod)                                                       // Forward
+Keyboard.S = (XInput1.Joy1Y < -Var.WasdMod)                                                      // Backward
+if Var.Strafing then                                                                                  // Hold LT to strafe
+    Keyboard.A = FALSE
+    Keyboard.D = FALSE
+    Keyboard.Q = XInput1.Joy1X < -Var.WasdMod
+    Keyboard.E = XInput1.Joy1X > Var.WasdMod
+else                                                                                                  // Release LT to turn
+    Keyboard.Q = FALSE
+    Keyboard.E = FALSE
+    Keyboard.A = (NOT Var.Strafing) AND (XInput1.Joy1X < -Var.WasdMod)
+    Keyboard.D = (NOT Var.Strafing) AND (XInput1.Joy1X > Var.WasdMod)
+endif
+
+;Back / Start
+Keyboard.Escape = Var.NoTrig AND XInput1.Back                   // Close extra windows
+
+;D-Pad (Windows)
+Keyboard.Backspace = Var.NoTrig AND XInput1.Up                  // Map
+Keyboard.I = Var.NoTrig AND  XInput1.Left                       // Inventory
+Keyboard.Shift AND Keyboard.B = Var.NoTrig AND XInput1.Right    // Open All Bags
+Keyboard.Alt AND Keyboard.Q = Var.NoTrig AND XInput1.Down       // Quests
+
+;LT + D-Pad (Targeting)
+Keyboard.Shift AND Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Tab = Var.LT AND XInput1.Up   // Cycle XTargets
+Keyboard.Tab = Var.LT AND XInput1.Left                                                       // Cycle NPCs
+Keyboard.Shift AND Keyboard.Tab = Var.LT AND XInput1.Right                                   // Cycle PCs
+Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Seven = Var.LT AND XInput1.Down                  // Target Pet
+
+;RT + D-Pad (Pet commands)
+Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Nine = Var.RT AND XInput1.Up                     // Pet Attack
+Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Five = Var.RT AND XInput1.Left                   // Pet Feign Death
+Keyboard.Alt AND Keyboard.Minus = Var.RT AND XInput1.Right                                   // Shield Pet
+Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Eight = Var.RT AND XInput1.Down                  // Pet Back Off
+
+;Handle Feign Death(s)
+if (Var.Feigned) then                               // Stand up (Any button sans triggers / sticks)
+    Var.StandResetTimer++
+    if (Var.StandResetTimer >= Var.FDResetLimit) AND ((XInput1.A) OR (XInput1.B) OR (XInput1.X) OR (XInput1.Y) OR (XInput1.LeftShoulder) OR (XInput1.RightShoulder)) then
+        Keyboard.Ctrl AND Keyboard.S = TRUE
+        Keyboard.Ctrl AND Keyboard.S = FALSE
+        Var.FeignResetTimer = 0
+        Var.Feigned = FALSE
+    endif
+else
+    Var.FeignResetTimer++
+    if (Var.RT AND (Var.FeignResetTimer >= Var.FDResetLimit) AND ((XInput1.LeftShoulder) OR (XInput1.RightShoulder))) then
+        Var.Feigned = TRUE
+        Var.StandResetTimer = 0
+    //elseif (Var.LTRT AND XInput1.Start) then   // Camp out
+        //Keyboard.Ctrl AND Keyboard.X = TRUE
+        //Keyboard.Ctrl AND Keyboard.X = FALSE
+    elseif Var.LTRT AND XInput1.Back then   // Halt Script Execution
+        Mouse.LeftButton = FALSE
+        Mouse.RightButton = FALSE
+        Mouse.IsDragging = FALSE
+        //Keyboard.Shift = FALSE
+        //Keyboard.Ctrl = FALSE
+        //Keyboard.Alt = FALSE
+        //Keyboard.Alt = TRUE
+        //  wait 100ms
+        //Keyboard.Tab = TRUE
+        //  wait 100ms
+        //Keyboard.Tab = FALSE
+        //Keyboard.Alt = FALSE
+        ExitProgram = TRUE
+    endif
+
+    ;Click Left Stick (Swarm Pets)            
+    Keyboard.Two = Var.NoTrig AND XInput1.LeftThumb
+    Keyboard.Five = Var.LT AND XInput1.LeftThumb
+    Keyboard.Three = Var.RT AND XInput1.LeftThumb
+    Keyboard.Four = Var.LTRT AND XInput1.LeftThumb 
+
+    ;LT + RT + Click Right Stick
+    Keyboard.Seven = Var.LTRT AND XInput1.RightThumb                                                     // Death Bloom
+
+    ;Back
+    Keyboard.Ctrl AND Keyboard.Minus = Var.LT AND XInput1.Back                                           // Embalmer's Carapace
+    Keyboard.Shift AND Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.Three = Var.RT AND XInput1.Back       // Harmshield
+
+    ;Start    
+    Keyboard.Six = Var.NoTrig AND XInput1.Start                      // Reluctant Benevolence
+    Keyboard.Ctrl AND Keyboard.Six = Var.LT AND XInput1.Start        // Clicky Robe
+    Keyboard.Ctrl AND Keyboard.Three = Var.RT AND XInput1.Start      // Third Spire
+    Keyboard.Ctrl AND Keyboard.Five = Var.LTRT AND XInput1.Start     // Funeral Pyre
+
+    ;A (Duck / Jump / Levitate / Warp Forward / Drop)
+    Keyboard.End = Var.LTRT AND XInput1.A                // Drop
+    Keyboard.X = Var.NoTrig AND XInput1.RightThumb       // Duck
+    Keyboard.Space = Var.NoTrig AND XInput1.A            // Jump (Fall)
+    if (XInput1.A AND Var.LT) then                       // Whisperwind OR Mount / Dismount
+        if (NOT Var.Running) AND (NOT Var.Mounted) then
+            Keyboard.Ctrl AND Keyboard.Shift AND Keyboard.Two = TRUE                      // switch to other ability set
+            Keyboard.Ctrl AND Keyboard.Shift AND Keyboard.Two = FALSE
+            wait 500ms
+            Keyboard.Ctrl AND Keyboard.One = TRUE     // cast Mount
+            Keyboard.Ctrl AND Keyboard.One = FALSE             
+            Var.Mounted = TRUE             
+        
+            Keyboard.Ctrl AND Keyboard.Shift AND Keyboard.One = TRUE                      // switch back 
+            Keyboard.Ctrl AND Keyboard.Shift AND Keyboard.One = FALSE
+        elseif (NOT Var.Running) AND Var.Mounted then
+            Keyboard.Shift AND Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.One = TRUE     // Dismount
+            Keyboard.Shift AND Keyboard.Ctrl AND Keyboard.Alt AND Keyboard.One = FALSE 
+            wait 1000ms
+            Var.Mounted = FALSE
+        else
+            Keyboard.Minus = TRUE
+            Keyboard.Minus = FALSE
+        endif
+    endif
+    if (XInput1.A AND Var.RT) then                       // Levitate (script)
+        Keyboard.F1 = TRUE                        // target self
+        Keyboard.F1 = FALSE
+
+        Keyboard.Ctrl = TRUE                      // switch to other ability set
+        Keyboard.Shift = TRUE
+        Keyboard.Zero = TRUE
+        Keyboard.Zero = FALSE
+        Keyboard.Shift = FALSE
+        Keyboard.Ctrl = FALSE
+
+        Keyboard.Ctrl AND Keyboard.Eight = TRUE   // cast Levitate
+        Keyboard.Ctrl AND Keyboard.Eight = FALSE
+        
+        Keyboard.Ctrl = TRUE                      // switch back
+        Keyboard.Shift = TRUE
+        Keyboard.One = TRUE
+        Keyboard.One = FALSE
+        Keyboard.Shift = FALSE
+        Keyboard.Ctrl = FALSE
+    endif
+
+    ;Y (Medium DoTs)
+    Keyboard.Alt AND Keyboard.Five = Var.NoTrig AND XInput1.Y       // Medium Fire DoT
+    Keyboard.Alt AND Keyboard.Six = Var.LT AND XInput1.Y            // Medium Magic DoT
+    Keyboard.Alt AND Keyboard.Seven = Var.RT AND XInput1.Y          // Medium Poison DoT
+    Keyboard.Alt AND Keyboard.Eight = Var.LTRT AND XInput1.Y        // Medium Poison DoT
+
+    ;B (Short DoTs and debuff)
+    Keyboard.Alt AND Keyboard.Two = Var.NoTrig AND XInput1.B        // Short Disease DoT
+    Keyboard.Alt AND Keyboard.Three = Var.LT AND XInput1.B          // Short Magic DoT
+    Keyboard.Alt AND Keyboard.Four = Var.RT AND XInput1.B           // Short Fire DoT
+    if Var.CastDoT then                                         // Toggle between casting two debuffs
+        Keyboard.Alt AND Keyboard.Nine = Var.LTRT AND XInput1.B      // Chaotic Contagion (Debuff / Medium Fire and/or Corruption DoT)
+        if (Var.LTRT AND Released(XInput1.B)) then
+            Var.CastDoT = FALSE
+        endif
+    else
+        Keyboard.Ctrl AND Keyboard.Nine = Var.LTRT AND XInput1.B     // Scent of Terris (Debuff)
+        if (Var.LTRT AND Released(XInput1.B)) then
+            Var.CastDoT = TRUE
+        endif
+    endif
+
+    ;X (DDs and Slow)
+    Keyboard.Alt AND Keyboard.Equals = Var.NoTrig AND XInput1.X     // Lifetap
+    Keyboard.Alt AND Keyboard.Zero = Var.LT AND XInput1.X           // Turn Undead
+    Keyboard.Ctrl AND Keyboard.Eight = Var.RT AND XInput1.X         // Slow Undead
+    Keyboard.Alt AND Keyboard.One = Var.LTRT AND XInput1.X          // Venin / Blood
+
+    ;LB / RB ("Pair" abilities)
+    Keyboard.One = Var.NoTrig AND XInput1.LeftShoulder                      // Snare
+    Keyboard.Ctrl AND Keyboard.One = Var.NoTrig AND XInput1.RightShoulder   // Root
+    Keyboard.Eight = Var.LT AND XInput1.LeftShoulder                        // Invis
+    Keyboard.Nine = Var.LT AND XInput1.RightShoulder                        // IVU
+    Keyboard.Zero = Var.RT AND XInput1.LeftShoulder                         // Death Peace (FD)
+    Keyboard.Equals = Var.RT AND XInput1.RightShoulder                      // Death's Effigy (Fade)
+    Keyboard.Ctrl AND Keyboard.Zero = Var.LTRT AND XInput1.LeftShoulder     // Levant
+    Keyboard.Ctrl AND Keyboard.Equals = Var.LTRT AND XInput1.RightShoulder  // Gate
+endif
