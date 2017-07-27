@@ -11,7 +11,7 @@ This is no different than using a mouse/keyboard with macro buttons.
 
 # Usage
 0. Follow [the steps provided by Xbox Support to use an Xbox 360 controller with your PC](http://support.xbox.com/en-US/xbox-on-windows/accessories/xbox-controller-for-windows-setup)
-1. install [GlovePIE](https://github.com/deftflux/descent-glovepie/wiki/Setting-up-GlovePIE)
+1. Install [GlovePIE](https://github.com/deftflux/descent-glovepie/wiki/Setting-up-GlovePIE)
 2. Download [EQ.pie](EQ.pie?raw=true)
 4. Start EverQuest, log in, and choose your character
 5. Open GlovePIE
